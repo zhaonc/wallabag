@@ -31,6 +31,11 @@ class EditEntryType extends AbstractType
                 'label' => 'entry.edit.origin_url_label',
                 'default_protocol' => null,
             ])
+            ->add('content', TextareaType::class, [
+                'required' => true,
+                'label' => 'Content',
+                'attr' => [ 'style' => 'height: 20em; padding: 10px' ]
+            ])
             ->add('save', SubmitType::class, [
                 'label' => 'entry.edit.save_label',
             ])
