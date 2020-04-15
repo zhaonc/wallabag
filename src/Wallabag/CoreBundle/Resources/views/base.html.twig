@@ -78,5 +78,8 @@
         {% if craue_setting('matomo_enabled') %}
             {{ matomo(craue_setting('matomo_host'), craue_setting('matomo_site_id')) }}
         {% endif %}
+        
+        {% block javascripts %}
+        {% endblock %}
     </body>
 </html>
