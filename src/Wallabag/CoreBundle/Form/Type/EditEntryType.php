@@ -9,6 +9,8 @@ use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Wallabag\CoreBundle\Entity\Entry;
+use Symfony\Component\Form\Extension\Core\Type\TextareaType;
+
 
 class EditEntryType extends AbstractType
 {
