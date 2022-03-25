@@ -1,0 +1,41 @@
+version: '3'
+services:
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        environment:
+            - PMA_HOST=${DATABASE_HOST}
+            - PMA_USER=${DATABASE_USER}
+            - PMA_PASSWORD=${DATABASE_PASSWORD}
+            - PMA_ARBITRARY=1
+        restart: always
+        ports:
+            - 8081:80
+        volumes:
+            - /sessions
+        networks:
+            default:
+                aliases:
+                    - phpmyadmin
+    mailhog:
+        ports:
+            - ${MAILHOG_WEBPORT:-8001}:8025
+    db:
+        user: ${USER}
+        ports:
+            - 6033:3306
+        volumes:
+            - ./.cache/db:/var/lib/mysql
+    api:
+        restart: always
+        user: ${USER}
+        ports:
+            - 9203:9203
+            - 4000:4000
+            - 4001:4001
+            - 8707:8707
+        volumes:
+            - ./.cache:/cache
+            - ./api:/app
+        environment:
+            - HOST_NAME=${HOST_NAME}
+            - UI_URL=http://${HOST_NAME}:3000

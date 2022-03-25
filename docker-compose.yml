@@ -1,0 +1,49 @@
+version: '3'
+services:
+    db:
+        image: mariadb:10.4-bionic
+        restart: always
+        command: ['--max_allowed_packet=1G', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+        environment:
+            MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
+        networks:
+            default:
+                aliases:
+                    - db
+    mailhog:
+        image: mailhog/mailhog:latest
+        environment:
+            MH_CORS_ORIGIN: "*"
+        networks:
+            default:
+                aliases:
+                    - mailhog
+    docker:
+        image: cuigh/socat
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+        networks:
+            default:
+                aliases:
+                    - docker
+    api:
+        build: ./api
+        working_dir: /app
+        env_file:
+            - .env
+        environment:
+            - COMPOSER_CACHE_DIR=/cache/composer
+            - DATABASE_URL_DEV=mysql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}/${DATABASE_NAME}
+            - DATABASE_URL_TEST=mysql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}/${DATABASE_NAME}_test
+            - MAILER_DSN=${MAIL_DRIVER}://${MAIL_HOST}:${MAIL_PORT}
+        depends_on:
+            - db
+            - mailhog
+        networks:
+            default:
+                aliases:
+                    - api
+
+networks:
+    default:
+        driver: bridge

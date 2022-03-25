@@ -1,0 +1,6 @@
+httplug:
+    clients:
+        wallabag_core:
+            plugins: ['httplug.plugin.logger']
+    discovery:
+        client: false

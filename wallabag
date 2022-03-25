@@ -1,0 +1,183 @@
+#!/bin/bash
+
+dotenv () {
+  set -a
+  [ -f .env ] && . .env
+  set +a
+}
+
+dotenv
+
+USER="$(id -u):$(id -g)"
+HOST_NAME="host.docker.local"
+PROJECT=${APP_NAME}
+OS="linux"
+
+if [[ `uname` == "Darwin" ]]; then
+    OS="osx"
+elif [[ -n `uname -a | grep microsoft` ]]; then
+		OS="windows";
+fi
+
+if [[ $OS == "osx" ]]; then
+    INTERFACE=$(route -n get default | grep 'interface' | awk '{print $2}')
+    HOST_IP=$(ifconfig $INTERFACE | grep "inet " | grep -v 127.0.0.1 | cut -d\  -f2)
+    USER="root:root"
+elif [[ $OS == "windows" ]]; then
+    HOST_NAME="host.docker.internal"
+    HOST_IP=`dig +short host.docker.internal`
+elif [ -z "$CI" ]; then
+    # Not CI linux
+    HOST_IP=`ip -4 addr show scope global dev docker0 | grep inet | awk '{print \$2}' | cut -d / -f 1`
+fi
+
+# returns 0 if version1 = version2  
+#         -1 if version1 < version2 
+#         1  if version1 > version2
+# this assumes xx.xx.xx for version number
+vercmp()
+{
+    version1=$(echo "$1"  | sed 's/[[:alpha:]|(|[:space:]]//g' | awk -F- '{print $1}')
+    version2=$(echo "$2"  | sed 's/[[:alpha:]|(|[:space:]]//g' | awk -F- '{print $1}')
+    latest=$(printf '%s\n' "$version1" "$version2" | sort -V | tail -n1)
+
+    ret=-1
+    if [ "$version1" = "$version2" ]; then
+      # v1 = v2
+      ret=0
+    elif [ "$latest" = "$version1" ]; then
+      # v2 < v1 
+      ret=1
+    else
+      # v2 > v1
+      ret=-1
+    fi
+    
+    echo "$ret"
+}
+
+compose () {
+  if [[ $OS == "osx" ]]; then
+    if [ $(vercmp 0.13.1 `mutagen version`) -lt 1 ] ; then
+      USER=${USER} HOST_IP=${HOST_IP} HOST_NAME=${HOST_NAME} COMPOSE_PROJECT_NAME=${PROJECT} mutagen-compose -f docker-compose.yml -f docker-compose.local.yml -f docker-compose.osx.local.yml  $@
+    else
+      # Old mutagen with compose subcommand
+      USER=${USER} HOST_IP=${HOST_IP} HOST_NAME=${HOST_NAME} COMPOSE_PROJECT_NAME=${PROJECT} mutagen compose -f docker-compose.yml -f docker-compose.local.yml -f docker-compose.osx.local.yml  $@
+    fi
+  elif [ -z "$CI" ]; then
+    # Windows or Linux but not CI
+    USER=${USER} HOST_IP=${HOST_IP} HOST_NAME=${HOST_NAME} COMPOSE_PROJECT_NAME=${PROJECT} docker-compose -f docker-compose.yml -f docker-compose.local.yml $@
+  else
+    # get id of container
+    CONTAINER_ID=$(docker ps -q -f "label=com.gitlab.gitlab-runner.job.id=$CI_JOB_ID" -f "label=com.gitlab.gitlab-runner.type=build")
+    # get mount name
+    SOURCES=$(docker inspect $CONTAINER_ID -f "{{ range .Mounts }}{{ if eq .Destination \"/builds\" }}{{ .Source }}{{end}}{{end}}")
+    SOURCES="$SOURCES/$CI_PROJECT_PATH";
+    PROJECT="${APP_NAME}-${CI_JOB_ID}";
+    SOURCES=${SOURCES} COMPOSE_PROJECT_NAME=${PROJECT} docker-compose -f docker-compose.yml -f docker-compose.ci.yml $@;
+  fi
+}
+
+removehost() {
+    if [ -n "$CI" ] || [ $OS == "windows" ]; then
+        return 0
+    fi
+    if [ -n "$(grep $HOST_NAME /etc/hosts)" ]; then
+        echo "Removing $HOST_NAME from your HOSTS";
+
+        if [[ $OS == "osx" ]]; then
+            sudo sed -i '' "/$HOST_NAME/d" '/etc/hosts'
+        else
+            sudo sed -i "/$HOST_NAME/d" "/etc/hosts"
+        fi
+
+    fi
+}
+
+addhost() {
+    if [ -n "$CI" ] || [ $OS == "windows" ]; then
+        return 0
+    fi
+    HOSTS_LINE="$HOST_IP\t$HOST_NAME"
+    if [ -z "$(grep $HOST_NAME /etc/hosts)" ]
+    then
+            echo "Adding $HOST_NAME to your HOSTS";
+            sudo -- sh -c -e "echo '$HOSTS_LINE' >> /etc/hosts";
+    fi
+}
+
+start() {
+  DIRECTORY="./.cache/db"
+  if [ ! -d "$DIRECTORY" ]; then
+    mkdir -p "$DIRECTORY"
+  fi
+  addhost
+  compose build
+  compose up --force-recreate -d $@
+  echo "Environment up and ready!"
+  echo "Use './wallabag logs [api|ui|db]' to display logs"
+}
+
+stop() {
+  compose down --remove-orphans
+}
+
+shell() {
+  compose exec $1 /bin/bash
+}
+
+run() {
+    compose run $@
+}
+
+exec() {
+  if [ -z "$CI" ]; then
+    compose exec $1 ${@:2}
+  else
+    compose exec -T $1 ${@:2}
+  fi
+}
+
+logs() {
+   compose logs -f ${1} 
+}
+
+clean() {
+  if [[ $OS == "osx" ]]; then
+    compose down --remove-orphans -v
+  fi
+  git clean -fXd .
+  removehost
+}
+
+if [ $1 '==' 'start' ];
+then
+  start ${@:2};
+elif [ $1 '==' 'restart' ];
+then
+  stop;
+  start;
+elif [ $1 '==' 'stop' ];
+then
+  stop;
+elif [ $1 '==' 'shell' ];
+then
+  shell ${@:2};
+elif [ $1 '==' 'exec' ];
+then
+  exec ${@:2};
+elif [ $1 '==' 'run' ];
+then
+  run ${@:2};
+elif [ $1 '==' 'logs' ];
+then
+  logs ${@:2};
+elif [ $1 '==' 'compose' ];
+then
+  compose ${@:2};
+elif [ $1 '==' 'clean' ];
+then
+  clean;
+else
+  echo "Usage ./wallabag [start|stop|restart|shell|exec|run|logs|compose|clean] [...arguments]"
+fi

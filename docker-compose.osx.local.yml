@@ -1,0 +1,30 @@
+version: '3.7'
+services:
+    db:
+        volumes:
+            - db-data:/var/lib/mysql
+    api:
+        user: ${USER}
+        volumes:
+            - api-cache:/cache
+            - api-code:/app
+
+volumes:
+    db-data:
+    api-cache:
+    api-code:
+
+# Define synchronization and forwarding sessions
+x-mutagen:
+    sync:
+        defaults:
+            ignore:
+                vcs: true
+                paths:
+                    - "/.next"
+                    - "/var"
+            mode: two-way-resolved
+            stageMode: neighboring
+        api-code:
+            alpha: "./api"
+            beta: "volume://api-code"
