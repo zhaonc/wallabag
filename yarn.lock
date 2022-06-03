@@ -1495,9 +1495,9 @@ ajv@^8.0.0, ajv@^8.0.1, ajv@^8.8.0:
     require-from-string "^2.0.2"
     uri-js "^4.2.2"
 
-annotator@wallabag/annotator#master:
+annotator@zhaonc/annotator#touch:
   version "2.0.0-alpha.3"
-  resolved "https://codeload.github.com/wallabag/annotator/tar.gz/9245466498a4d2b4254980865ab07117dceb7735"
+  resolved "https://codeload.github.com/zhaonc/annotator/tar.gz/c278f28f0ccffb7ade16be178297560028211dc2"
   dependencies:
     backbone-extend-standalone "^0.1.2"
     clean-css "^4.1.11"
