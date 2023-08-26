@@ -60,3 +60,26 @@ Copyright © 2013-current Nicolas Lœuillet <nicolas@loeuillet.org>
 
 This work is free. You can redistribute it and/or modify it under the
 terms of the MIT License. See the [COPYING.md](./COPYING.md) file for more details.
+
+## Add editor
+
+```bash
+# Pull latest
+git checkout master && git pull
+
+# Fetch all tags
+git fetch --all
+
+# For example, previous version was 2.5.4, and we are upgrading to 2.6.4
+# Our goals are:
+# 1. to create a new branch with suffix -editor
+# 2. to cherry-pick the patches to the latest branch (excluding the compiled assets)
+# 3. compile the assets
+
+git reset --hard 2.6.4
+git checkout -b 2.6.4-editor
+git cherry-pick 2.5.4..2.5.4-editor^1
+make build
+git commit -m "update assets"
+git push
+```
